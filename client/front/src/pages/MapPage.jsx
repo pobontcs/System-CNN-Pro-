@@ -4,8 +4,8 @@ import Nav from "../components/Layout/Nav";
 import Container from "../components/Layout/Container";
 import { MapContainer, TileLayer, Circle, Polygon, Popup, useMap, Marker } from "react-leaflet";
 import { useQuery } from "@tanstack/react-query";
-import { USE_MOCK } from "../lib/api";
-import { getRegionalAlerts, getWeather, getAirQuality } from "../lib/api";
+// import { USE_MOCK } from "../lib/api";
+// import { getRegionalAlerts, getWeather, getAirQuality } from "../lib/api";
 import { mockRegionalAlerts, mockGetWeather, mockGetAirQuality } from "../lib/mock";
 import { riskFromWeather } from "../lib/risk";
 

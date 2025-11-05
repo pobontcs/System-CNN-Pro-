@@ -6,8 +6,8 @@ import GeoCapture from "../components/Upload/GeoCapture";
 import GradCamOverlay from "../components/Results/GradCamOverlay";
 import ResultCard from "../components/Results/ResultCard";
 import SuggestionsList from "../components/Results/SuggestionsList";
-import { inferImage, ping, USE_MOCK } from "../lib/api";
-import { mockInfer, mockPing } from "../lib/mock";
+// import { inferImage, ping, USE_MOCK } from "../lib/api";
+// import { mockInfer, mockPing } from "../lib/mock.js";
 
 export default function HealthCheck(){
   const [status,setStatus] = useState("Ready");
