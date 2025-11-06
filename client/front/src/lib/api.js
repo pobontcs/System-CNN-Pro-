@@ -50,8 +50,13 @@ export async function getAirQuality(lat, lon) {
 /** Regional alerts overlays */
 export async function getRegionalAlerts() {
   const { data } = await http.get("/alerts");
-  return data; // [ { region, center:{lat,lon}, radius_m?, polygon?, top_disease, severity, tips:[], summary } ]
+  // Normalize to array if backend returns an object or {results:[]}
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  if (Array.isArray(data?.items)) return data.items;
+  return []; // fallback
 }
+
 
 /** Detection history */
 export async function listDetections({ limit = 100, offset = 0 } = {}) {
