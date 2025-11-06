@@ -1,52 +1,53 @@
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+# server/api/views.py
+from django.http import JsonResponse
+from django.views.decorators.http import require_GET
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 
-# GET /api/ping/
+def root(request):
+    # GET /api/
+    return JsonResponse({"message": "CropCare API is running!"})
+
+@require_GET
 def ping(request):
-    return JsonResponse({"status": "ok", "message": "CropCare API is running!"})
+    # GET /api/ping/
+    return JsonResponse({"status": "ok"})
 
-# GET /api/tips/
 def tips(request):
-    demo = [
-        "Inspect leaves weekly for spots or discoloration.",
-        "Avoid overhead watering at night.",
-        "Disinfect pruning tools between plants.",
-    ]
-    return JsonResponse({"tips": demo})
+    # GET /api/tips/
+    return JsonResponse({"tips": []})
 
-# GET /api/detections/
 def detections(request):
-    # Return recent detections; replace with real DB later
-    sample = [
-        {"id": 1, "label": "Leaf Blight", "confidence": 0.92, "severity": "moderate", "image": None},
-        {"id": 2, "label": "Powdery Mildew", "confidence": 0.88, "severity": "low", "image": None},
-    ]
-    return JsonResponse(sample, safe=False)
+    # GET /api/detections/
+    return JsonResponse([], safe=False)
 
-# GET /api/weather/
+def alerts(request):
+    # GET /api/alerts/
+    return JsonResponse({"alerts": []})
+
 def weather(request):
-    # Mock now; plug your provider later
-    return JsonResponse({"temp_c": 30, "humidity": 70, "uv_index": 8})
+    # GET /api/weather/
+    return JsonResponse({"location": None, "forecast": []})
 
-# GET /api/air/
 def air(request):
-    # Mock now; plug your provider later
-    return JsonResponse({"pm25": 35, "pm10": 60, "aqi": 85})
+    # GET /api/air/
+    return JsonResponse({"aqi": None})
 
-@method_decorator(csrf_exempt, name="dispatch")  # remove if you switch to cookie auth+CSRF
-class InferView(View):
-    # POST /api/infer/   (multipart/form-data with 'image')
+class InferView(APIView):
+    # POST /api/infer/  (multipart form-data: image=<file>)
+    parser_classes = (MultiPartParser, FormParser)
+
     def post(self, request, *args, **kwargs):
-        image = request.FILES.get("image")
-        if not image:
-            return HttpResponseBadRequest("No image uploaded with key 'image'")
-        # TODO: run your TensorFlow model here, e.g. model.predict(image)
-        # Placeholder response:
+        f = request.FILES.get("image") or request.FILES.get("file")
+        if not f:
+            return JsonResponse({"error": "image file required (field: 'image' or 'file')"}, status=400)
+
+        # TODO: run your TensorFlow model here and return real results.
+        # For now, just return a minimal, valid JSON response.
         return JsonResponse({
-            "label": "Leaf Blight",
-            "confidence": 0.93,
-            "severity": "moderate",
-            "explain": "demo saliency/info here",
+            "label": "healthy",
+            "confidence": 0.99,
+            "explainable_mask": None,
+            "size_bytes": f.size,
+            "filename": f.name,
         })
