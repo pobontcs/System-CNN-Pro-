@@ -7,5 +7,5 @@
 
 ## Clone
 ```bash
-git clone https://github.com/<you>/CropCare.git
+git clone https://github.com/sabbir-404/CropCare.git
 cd CropCare
