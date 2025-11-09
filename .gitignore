@@ -1,0 +1,14 @@
+# Python
+server/.venv/
+server/__pycache__/
+server/db.sqlite3
+server/media/
+
+# Node
+client/front/node_modules/
+client/front/dist/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+*.log
