@@ -1,3 +1,5 @@
+/* The code snippet is importing various functions and components from different libraries and files in
+a JavaScript React application. Here is a breakdown of what each import statement is doing: */
 import { useMemo, useState } from "react";
 import Nav from "../components/Layout/Nav";
 import Container from "../components/Layout/Container";
@@ -8,6 +10,12 @@ import {
 } from "recharts";
 import ProfileEditor from "../components/Profile/ProfileEditor";
 
+/* The `const COLORS` object is defining a set of color values as key-value pairs. Each key represents
+a specific color used in the application, and the corresponding value is the hexadecimal color code
+for that color. These color values are then used throughout the `Dashboard` component to style
+various elements such as backgrounds, borders, text colors, and chart colors. By defining these
+colors in a centralized object, it makes it easier to maintain and update the color scheme of the
+application consistently. */
 const COLORS = {
   cream: "#F1EDE8",
   leaf: "#4CAF50",
@@ -19,6 +27,9 @@ const COLORS = {
   border: "#DAD7CD",
 };
 
+/* The `export default function Dashboard()` is a React functional component that serves as the main
+dashboard page of the application. Here is a breakdown of what the code inside this function is
+doing: */
 export default function Dashboard() {
   const qc = useQueryClient();
 
@@ -155,19 +166,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border p-4 shadow-sm" style={{ background: COLORS.cream, borderColor: COLORS.border }}>
-          <div className="font-semibold mb-2">AI Tips</div>
-          <ul className="space-y-2 text-sm text-gray-700">
-            {(tipsData?.tips ?? []).map((t, i) => (
-              <li key={i} className="rounded-md bg-white/70 p-2 border" style={{ borderColor: COLORS.border }}>
-                {t}
-              </li>
-            ))}
-            {(!tipsData?.tips || tipsData.tips.length === 0) && (
-              <li className="text-gray-500">No tips yet. Run a Health Check to see suggestions.</li>
-            )}
-          </ul>
-        </div>
 
         {openEdit && (
           <ProfileEditor
