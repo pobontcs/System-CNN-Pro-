@@ -116,13 +116,13 @@ export default function Dashboard() {
             <div className="text-3xl font-extrabold">{detections.length}</div>
           </div>
           <div className="rounded-2xl border p-4 shadow-sm" style={{ background: COLORS.cream, borderColor: COLORS.border }}>
-            <div className="text-sm text-gray-600">High Severity</div>
+            <div className="text-sm text-gray-600">Damaged Crop</div>
             <div className="text-3xl font-extrabold">
               {detections.filter((r) => (r.severity || r.severity_band) === "high").length}
             </div>
           </div>
           <div className="rounded-2xl border p-4 shadow-sm" style={{ background: COLORS.cream, borderColor: COLORS.border }}>
-            <div className="text-sm text-gray-600">Last 7 Days</div>
+            <div className="text-sm text-gray-600">Healthy Crop</div>
             <div className="text-3xl font-extrabold">
               {
                 detections.filter(

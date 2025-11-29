@@ -33,7 +33,6 @@ export default function HealthCheck() {
   const [loc, setLoc] = useState(null);                    // { lat, lon, acc } from browser geolocation
   const [geoErr, setGeoErr] = useState("");                // geolocation error message
 
-  // capture via file input
   // Called whenever user chooses an image from gallery/camera.
   function onSelectFile(e) {
     const f = e.target.files?.[0];
@@ -70,13 +69,12 @@ export default function HealthCheck() {
   }
 
   // ---- Weather / Air quality queries (frontend → backend → external APIs) ----
-  // getWeather(lat, lon) should call your Django API which may call a weather provider.
   const { data: weather } = useQuery({
     queryKey: ["weather", loc?.lat, loc?.lon],
     enabled: Boolean(loc),
     queryFn: () => getWeather(loc.lat, loc.lon),
   });
-  // getAirQuality(lat, lon) should call your Django API which may call an AQI provider.
+
   const { data: aqi } = useQuery({
     queryKey: ["aqi", loc?.lat, loc?.lon],
     enabled: Boolean(loc),
@@ -100,11 +98,10 @@ export default function HealthCheck() {
   const inferMut = useMutation({
     mutationFn: async ({ image, cropType, cropStage, loc }) => {
       const fd = new FormData();
-      // Backend receives file as "image" field.
-      fd.append("image", image);
-      // Basic metadata (crop type, stage).
-      fd.append("crop_type", cropType);
+      fd.append("image", image);           // Backend receives file as "image" field.
+      fd.append("crop_type", cropType);    // Basic metadata (crop type, stage).
       fd.append("crop_stage", cropStage);
+
       // Optional location for Geo-based risk analysis.
       if (loc) {
         fd.append("lat", String(loc.lat));
@@ -112,10 +109,23 @@ export default function HealthCheck() {
         if (typeof loc.acc === "number")
           fd.append("acc", String(Math.round(loc.acc)));
       }
-      // infer(fd) → defined in /src/lib/api.ts, sends POST /api/infer to Django.
-      return await infer(fd);
+      return await infer(fd);              // POST /api/infer to Django.
     },
   });
+
+  // ---- Derived values for visualization in the Result panel ----
+  // These are recalculated whenever a new prediction comes in.
+  const confidencePct =
+    inferMut.data && typeof inferMut.data.confidence === "number"
+      ? Math.round((inferMut.data.confidence || 0) * 100)
+      : 0;
+
+  // severity is a string like "low" | "medium" | "high" from backend.
+  const severityLevel = inferMut.data?.severity || "low";
+
+  // severityScore: used only for the coloured bar (0–100).
+  const severityScore =
+    severityLevel === "high" ? 90 : severityLevel === "medium" ? 60 : 30;
 
   // Handle form submission (user clicks Analyze).
   function onSubmit(e) {
@@ -240,14 +250,21 @@ export default function HealthCheck() {
             </div>
           </div>
 
-          {/* Right: results & context */}
-          <div className="rounded-2xl border bg-[#F1EDE8] p-4">
-            <div className="font-semibold mb-2">Result</div>
+          {/* ========================= Right: AI Result panel ========================= */}
+          <div className="rounded-2xl border bg-[#F1EDE8] p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold">Result</div>
+              {/* Small badge to show this whole panel is AI-powered and experimental */}
+              <span className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-[#F97316]/10 text-[#D35400] border border-[#F97316]/40">
+                AI Beta
+              </span>
+            </div>
 
             {/* Initial instructions when nothing has been analyzed yet */}
             {!inferMut.data && !inferMut.isPending && (
               <div className="text-sm text-gray-600">
-                Upload a leaf image and click Analyze.
+                Upload a leaf image and click <b>Analyze</b> to see AI result,
+                explanation, and prevention methods.
               </div>
             )}
 
@@ -263,130 +280,235 @@ export default function HealthCheck() {
               </div>
             )}
 
-            {/* Successful response from backend (AI model + generative AI + weather + air) */}
+            {/* Content when we have an AI response */}
             {inferMut.data && (
               <>
-                {/* Core model output: disease classification + severity */}
-                <div className="rounded-md bg-white/70 border p-3">
-                  <div className="text-sm text-gray-600">Disease</div>
-                  <div className="text-lg font-bold">
-                    {inferMut.data.label} (
-                    {Math.round(
-                      (inferMut.data.confidence || 0) * 100
-                    )}
-                    %)
-                  </div>
-                  <div className="mt-1 text-sm">
-                    Severity:{" "}
-                    <span
-                      className={`px-2 py-0.5 rounded-md ${
-                        inferMut.data.severity === "high"
-                          ? "bg-red-100 text-red-700"
-                          : inferMut.data.severity === "medium"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-emerald-100 text-emerald-700"
-                      }`}
-                    >
-                      {inferMut.data.severity || "low"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Grad-CAM / heatmap view: explainable AI */}
-                {inferMut.data.heatmap_url && (
-                  <div className="mt-3">
-                    <div className="font-semibold">Explainable AI</div>
-                    <div className="text-sm text-gray-600">
-                      Highlighted regions the model focused on.
-                    </div>
-                    <img
-                      src={inferMut.data.heatmap_url}
-                      alt="Heatmap"
-                      className="mt-1 w-full rounded-md border"
-                    />
-                  </div>
-                )}
-
-                {/* Rule-based / classical tips from backend (non-generative) */}
-                <div className="mt-3">
-                  <div className="font-semibold">Treatment & Prevention</div>
-                  {Array.isArray(inferMut.data.tips) &&
-                  inferMut.data.tips.length > 0 ? (
-                    <ul className="mt-1 space-y-2">
-                      {inferMut.data.tips.map((t, i) => (
-                        <li
-                          key={i}
-                          className="text-sm rounded-md bg:white/70 border p-2 bg-white/70"
-                        >
-                          {t}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-sm text-gray-600">
-                      No tips available.
-                    </div>
-                  )}
-                </div>
-
-                {/* 🔹 NEW: Generative AI output – explanation focused */}
-                {/* Expecting backend to send optional fields:
-                    - gen_ai_summary: string (overall explanation)
-                    - gen_ai_why: string (why this looks infected)
-                    - gen_ai_reasons: string[] (bullet reasons)
-                   You can rename these to match your real API. */}
-                {(inferMut.data.gen_ai_summary ||
-                  inferMut.data.gen_ai_why ||
-                  (Array.isArray(inferMut.data.gen_ai_reasons) &&
-                    inferMut.data.gen_ai_reasons.length > 0)) && (
-                  <div className="mt-4 rounded-md border bg-white/80 p-3">
-                    <div className="font-semibold">
-                      AI-Generated Insights (Why this leaf is infected)
-                    </div>
-
-                    {/* Overall narrative summary from generative AI */}
-                    {inferMut.data.gen_ai_summary && (
-                      <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">
-                        {inferMut.data.gen_ai_summary}
+                {/* ---------------------------------------------------------------- */}
+                {/* 1) RESULT SECTION: prediction + severity + compact meters        */}
+                {/* ---------------------------------------------------------------- */}
+                <section className="rounded-lg bg-white/80 border p-3 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[11px] text-gray-600 uppercase tracking-wide">
+                        Result (AI prediction)
+                      </div>
+                      <div className="mt-1 text-base font-bold">
+                        {inferMut.data.label} ({confidencePct}%)
+                      </div>
+                      <p className="mt-1 text-[11px] text-gray-600">
+                        Prediction generated by the leaf disease AI model. This
+                        feature is still under development.
                       </p>
-                    )}
+                    </div>
 
-                    {/* Short “why” explanation */}
-                    {inferMut.data.gen_ai_why && (
-                      <div className="mt-2">
-                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                          Why the model flagged it as infected
+                    {/* Severity pill */}
+                    <div className="text-right">
+                      <div className="text-[11px] font-medium text-gray-600">
+                        Severity
+                      </div>
+                      <span
+                        className={`mt-1 inline-block px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                          severityLevel === "high"
+                            ? "bg-red-100 text-red-700"
+                            : severityLevel === "medium"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {severityLevel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Visual meters for confidence + severity */}
+                  <div className="mt-3 space-y-2">
+                    {/* Confidence bar */}
+                    <div>
+                      <div className="flex justify-between text-[11px] text-gray-600 mb-1">
+                        <span>Model confidence</span>
+                        <span>{confidencePct}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+                          style={{ width: `${confidencePct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Severity bar */}
+                    <div>
+                      <div className="flex justify-between text-[11px] text-gray-600 mb-1">
+                        <span>Infection severity (visual)</span>
+                        <span>{severityScore}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            severityLevel === "high"
+                              ? "bg-red-500"
+                              : severityLevel === "medium"
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
+                          } transition-[width] duration-500`}
+                          style={{ width: `${severityScore}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* ---------------------------------------------------------------- */}
+                {/* 2) EXPLANATION SECTION: why AI thinks healthy / diseased        */}
+                {/* ---------------------------------------------------------------- */}
+                <section className="mt-3 rounded-lg bg-white/80 border p-3 text-sm">
+                  <div className="font-semibold text-sm">
+                    Explanation — Why AI detected it as healthy or diseased
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-600">
+                    This combines the model&apos;s focus areas with an
+                    experimental generative AI explanation. Always confirm with
+                    a local expert.
+                  </p>
+
+                  <div className="mt-2 space-y-2">
+                    {/* Grad-CAM heatmap: visual explanation */}
+                    {inferMut.data.heatmap_url && (
+                      <div>
+                        <div className="text-[11px] font-medium text-gray-700 mb-1">
+                          Focus areas on the leaf (Grad-CAM)
                         </div>
-                        <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">
-                          {inferMut.data.gen_ai_why}
+                        <img
+                          src={inferMut.data.heatmap_url}
+                          alt="Heatmap"
+                          className="w-full rounded-md border"
+                        />
+                        <p className="mt-1 text-[11px] text-gray-600">
+                          Bright / red zones show where the model looked to
+                          decide if the leaf is healthy or diseased.
                         </p>
                       </div>
                     )}
 
-                    {/* Optional bullet list of concrete reasons */}
-                    {Array.isArray(inferMut.data.gen_ai_reasons) &&
-                      inferMut.data.gen_ai_reasons.length > 0 && (
-                        <div className="mt-2">
-                          <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
-                            Key visual indicators
+                    {/* Generative AI explanation: summary + reasons */}
+                    {(inferMut.data.gen_ai_summary ||
+                      inferMut.data.gen_ai_why ||
+                      (Array.isArray(inferMut.data.gen_ai_reasons) &&
+                        inferMut.data.gen_ai_reasons.length > 0)) && (
+                      <div className="mt-1 rounded-md bg-[#F8FAFC] border border-gray-200 p-2">
+                        {inferMut.data.gen_ai_summary && (
+                          <p className="text-sm text-gray-700 whitespace-pre-line">
+                            {inferMut.data.gen_ai_summary}
+                          </p>
+                        )}
+
+                        {inferMut.data.gen_ai_why && (
+                          <div className="mt-2">
+                            <div className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
+                              Why the AI flagged it this way
+                            </div>
+                            <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">
+                              {inferMut.data.gen_ai_why}
+                            </p>
                           </div>
-                          <ul className="mt-1 list-disc list-inside text-sm text-gray-700 space-y-1">
-                            {inferMut.data.gen_ai_reasons.map(
-                              (reason, idx) => (
-                                <li key={idx}>{reason}</li>
-                              )
-                            )}
-                          </ul>
-                        </div>
+                        )}
+
+                        {Array.isArray(inferMut.data.gen_ai_reasons) &&
+                          inferMut.data.gen_ai_reasons.length > 0 && (
+                            <div className="mt-2">
+                              <div className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide mb-1">
+                                Key visual indicators
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {inferMut.data.gen_ai_reasons.map(
+                                  (reason, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-[11px] rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 px-2 py-0.5"
+                                    >
+                                      {reason}
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    )}
+
+                    {/* Placeholder text when explanation AI is not wired yet */}
+                    {!inferMut.data.gen_ai_summary &&
+                      !inferMut.data.gen_ai_why &&
+                      !(Array.isArray(inferMut.data.gen_ai_reasons) &&
+                        inferMut.data.gen_ai_reasons.length > 0) && (
+                        <p className="text-[11px] text-gray-600">
+                          The explanation module is still being developed. In a
+                          future version, this box will describe in simple
+                          language why the AI decided the leaf is healthy or
+                          diseased.
+                        </p>
                       )}
                   </div>
-                )}
+                </section>
 
-                {/* Weather-based risk panel */}
+                {/* ---------------------------------------------------------------- */}
+                {/* 3) PREVENTION SECTION: prevention methods from AI / fallback    */}
+                {/* ---------------------------------------------------------------- */}
+                <section className="mt-3 rounded-lg bg-white/80 border p-3 text-sm">
+                  <div className="font-semibold text-sm">Prevention methods</div>
+                  <p className="mt-1 text-[11px] text-gray-600">
+                    These are AI-suggested practices. Adapt them to your local
+                    conditions and always follow expert or label guidance.
+                  </p>
+
+                  {/* Prefer backend-provided prevention_tips if available */}
+                  {Array.isArray(inferMut.data.prevention_tips) &&
+                  inferMut.data.prevention_tips.length > 0 ? (
+                    <ul className="mt-2 space-y-1.5">
+                      {inferMut.data.prevention_tips.map((p, i) => (
+                        <li
+                          key={i}
+                          className="text-sm rounded-md border p-2 bg-white/70"
+                        >
+                          {p}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    // Fallback generic prevention guidance (safe defaults)
+                    <ul className="mt-2 space-y-1.5 text-sm text-gray-700 list-disc list-inside">
+                      <li>Remove and safely dispose of heavily infected leaves.</li>
+                      <li>
+                        Avoid overhead irrigation late in the day to reduce leaf
+                        wetness.
+                      </li>
+                      <li>Maintain enough spacing between plants for airflow.</li>
+                      <li>
+                        Monitor nearby plants regularly for similar symptoms.
+                      </li>
+                      <li>
+                        Rotate crops and avoid planting the same crop in the
+                        same plot every season.
+                      </li>
+                    </ul>
+                  )}
+                </section>
+
+                {/* Global disclaimer for all 3 sections */}
+                <p className="mt-2 text-[11px] text-gray-600">
+                  Note: All results, explanations, and prevention tips on this
+                  page are generated by an AI system that is still in
+                  development. Use them as decision support, not as a final
+                  diagnosis.
+                </p>
+
+                {/* ------------------- Weather-based context + AQI ------------------- */}
                 {weather && (
-                  <div className="mt-3 rounded-md border p-2 bg-white/70">
-                    <div className="font-semibold">Weather-based Alert</div>
-                    <div className="text-sm">
+                  <div className="mt-3 rounded-md border p-2 bg-white/70 text-xs">
+                    <div className="font-semibold text-sm mb-0.5">
+                      Weather-based Alert
+                    </div>
+                    <div>
                       Temp {weather.temp_c?.toFixed?.(1)}°C · Humidity{" "}
                       {weather.humidity}% · Wind{" "}
                       {weather.wind_ms?.toFixed?.(1)} m/s · UV{" "}
@@ -396,23 +518,21 @@ export default function HealthCheck() {
                       ) : null}
                     </div>
                     {weatherNote && (
-                      <div className="text-xs text-gray-700 mt-1">
+                      <div className="mt-1 text-[11px] text-gray-700">
                         {weatherNote}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Air quality summary */}
                 {aqi && (
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="mt-2 text-[11px] text-gray-600">
                     Air Quality (AQI): <b>{aqi.aqi}</b> — {aqi.category}
                   </div>
                 )}
 
-                {/* Timestamp from backend (capture / inference time) */}
                 {inferMut.data.captured_at && (
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="mt-1 text-[11px] text-gray-600">
                     Captured at:{" "}
                     {new Date(
                       inferMut.data.captured_at
