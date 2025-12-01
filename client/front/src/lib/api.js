@@ -1,85 +1,96 @@
 import axios from "axios";
 import { getToken } from "./auth";
 
-export const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+// --- Configuration ---
 
-const http = axios.create({
-  baseURL: API_BASE,
-  timeout: 20000,
-});
+// 1. Django Server (Auth, History) - Port 8000
+// Ensure this matches your Django urls.py
+export const DJANGO_BASE = "http://127.0.0.1:8000/api";
 
-// attach token (if you later switch to DRF Token/JWT)
-http.interceptors.request.use((cfg) => {
+// 2. FastAPI Server (AI, Weather) - Port 2526
+// FIX: I added '/api' back to the end of this URL
+export const ML_BASE = "http://127.0.0.1:2526/api"; 
+
+// --- Axios Instances ---
+const djangoHttp = axios.create({ baseURL: DJANGO_BASE, timeout: 10000 });
+const mlHttp = axios.create({ baseURL: ML_BASE, timeout: 20000 });
+
+// Attach Token to Django Requests (for saving history to specific user)
+djangoHttp.interceptors.request.use((cfg) => {
   const t = getToken();
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });
 
-/** Health ping */
-export async function ping() {
-  const { data } = await http.get("/ping");
+// --- ML SERVER CALLS (FastAPI :2526) ---
+
+export async function infer(formData) {
+  // This will now call: http://127.0.0.1:2526/api/predict
+  const { data } = await mlHttp.post("/predict", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  
+  // Return the standardized format your App expects
+  return {
+    class_id: data.class_id,
+    confidence: data.confidence,
+    captured_at: data.captured_at || new Date().toISOString(), // Fallback if missing
+    crop_type: data.crop_type,
+    crop_stage: data.crop_stage,
+    lat: data.lat,
+    lon: data.lon
+  };
+}
+
+export async function getWeather(lat, lon) {
+  const { data } = await mlHttp.get("/weather", { params: { lat, lon } });
   return data;
 }
 
-/** Upload image & options -> model inference */
-export async function infer(formData) {
-  // formData must include: { image: File, crop?: string/json, crop_type?: string, crop_stage?: string }
-  const { data } = await http.post("/infer", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  return data; // { id, label, confidence, severity, heatmap_url?, tips?:[], captured_at, ... }
-}
-
-/** Tips (general AI tips) */
-export async function getTips() {
-  const { data } = await http.get("/tips");
-  return data; // { tips: [...] }
-}
-
-/** Weather & Air Quality by coords */
-export async function getWeather(lat, lon) {
-  const { data } = await http.get("/weather", { params: { lat, lon } });
-  return data; // { temp_c, humidity, wind_ms, uv_index, rain_mm? }
-}
-
 export async function getAirQuality(lat, lon) {
-  const { data } = await http.get("/air", { params: { lat, lon } });
-  return data; // { aqi, category, pm25?, pm10?, o3? }
+  const { data } = await mlHttp.get("/air", { params: { lat, lon } });
+  return data;
 }
 
-/** Regional alerts overlays */
-export async function getRegionalAlerts() {
-  const { data } = await http.get("/alerts");
-  // Normalize to array if backend returns an object or {results:[]}
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-  if (Array.isArray(data?.items)) return data.items;
-  return []; // fallback
-}
-
-
-/** Detection history */
-export async function listDetections({ limit = 100, offset = 0 } = {}) {
-  const { data } = await http.get("/detections", { params: { limit, offset } });
-  return data; // [ detections... ]
-}
-
-/** Me (profile) – keep simple; adjust when backend has auth endpoints */
-export async function getMe() {
-  // If you don’t have /me yet, stub this call on server or return a default object here.
-  // For now, return a minimal object so the UI renders.
-  try {
-    const { data } = await http.get("/me");
+export async function getTips() {
+    const { data } = await mlHttp.get("/tips");
     return data;
-  } catch {
-    return { name: "Farmer", avatar_url: "" };
+}
+
+// --- DJANGO SERVER CALLS (Port 8000) ---
+
+export async function saveHistory(historyData) {
+  // This calls: http://127.0.0.1:8000/api/save_history/
+  const { data } = await djangoHttp.post("/save_history/", historyData);
+  return data;
+}
+
+// CRITICAL FIX: Restored this function because Dashboard.jsx imports it.
+// Without this, the app will crash with "Uncaught SyntaxError".
+export async function listDetections({ limit = 100, offset = 0 } = {}) {
+  const { data } = await djangoHttp.get("/history_list/", { params: { limit, offset } });
+  return data; 
+}
+
+export async function getMe() {
+  try {
+      const { data } = await djangoHttp.get("/me/");
+      return data;
+  } catch (err) {
+      console.warn("Failed to fetch user profile", err);
+      return null;
   }
 }
 
+// CRITICAL FIX: Restored updateMeProfile because Dashboard.jsx imports it.
 export async function updateMeProfile({ name, avatarFile }) {
   const fd = new FormData();
   if (name) fd.append("name", name);
   if (avatarFile) fd.append("avatar", avatarFile);
-  const { data } = await http.post("/me", fd, { headers: { "Content-Type": "multipart/form-data" } });
+  
+  // We send this to Django since it handles User accounts
+  const { data } = await djangoHttp.post("/me/update/", fd, { 
+    headers: { "Content-Type": "multipart/form-data" } 
+  });
   return data;
 }

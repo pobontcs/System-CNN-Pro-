@@ -13,6 +13,7 @@ export default function Nav() {
   const { pathname } = useLocation();
   const nav = useNavigate();
   const authed = isAuthed();
+ 
 
   return (
     <nav className="sticky top-0 z-20 border-b bg-[#F1EDE8]/90 backdrop-blur">
@@ -21,6 +22,7 @@ export default function Nav() {
         <img src="/Image/logo.png" alt="Smart CropCare company logo featuring crop monitoring iconography" className="h-10 w-10 object-contain" />
         Smart CropCare
         </Link>
+       
 
         <div className="flex-1" />
         {authed ? (
