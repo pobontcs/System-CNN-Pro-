@@ -4,7 +4,7 @@ import Nav from "../components/Layout/Nav";
 import Container from "../components/Layout/Container";
 import { MapContainer, TileLayer, Circle, Polygon, Popup, useMap, Marker } from "react-leaflet";
 import { useQuery } from "@tanstack/react-query";
-import { getRegionalAlerts, getWeather, getAirQuality } from "../lib/api";
+import {  getWeather, getAirQuality } from "../lib/api";
 
 const UserIcon = L.divIcon({
   className: "bg-blue-600 rounded-full ring-2 ring-white",

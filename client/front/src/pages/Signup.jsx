@@ -27,14 +27,41 @@ export default function Signup() {
   async function onSubmit(e) {
     e.preventDefault();
     setErr("");
+    
     const { name, email, password } = form;
     if (!name || !email || !password) {
       setErr("Name, email and password are required.");
       return;
     }
-    // TODO: replace with real backend call to /auth/signup
-    setToken("dev-local-token");
-    nav("/dashboard");
+ 
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/signup/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // FIX 1: Read 'message' (which Django sends) OR 'error'
+        const serverError = data.message || data.error || "Signup failed";
+        setErr(serverError); 
+        alert(serverError); // Show the specific reason (e.g. "Email already exists")
+        return;
+      }
+
+      // FIX 2: Only set token and redirect IF signup was successful
+      // (For now, we just redirect to login so they can sign in with their new account)
+      alert("Account created! Please log in.");
+      nav("/login");
+
+    } catch(err) {
+      console.error("Signup error:", err);
+      setErr("Failed to connect to the server.");
+    }
   }
 
   return (
@@ -96,6 +123,7 @@ export default function Signup() {
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
                   autoComplete="email"
+                  required={true}
                 />
               </div>
 
@@ -107,7 +135,7 @@ export default function Signup() {
                   type="password"
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
-                  autoComplete="new-password"
+                  autoComplete="new-password" required={true}
                 />
               </div>
 
@@ -118,7 +146,7 @@ export default function Signup() {
                   placeholder="+8801XXXXXXXXX"
                   value={form.phone}
                   onChange={(e) => update("phone", e.target.value)}
-                  autoComplete="tel"
+                  autoComplete="tel" required={true}
                 />
               </div>
 
@@ -130,7 +158,7 @@ export default function Signup() {
                     placeholder="Dhaka Division"
                     value={form.region}
                     onChange={(e) => update("region", e.target.value)}
-                    autoComplete="address-level1"
+                    autoComplete="address-level1" required={true}
                   />
                 </div>
                 <div>
@@ -140,7 +168,7 @@ export default function Signup() {
                     placeholder="Mirpur"
                     value={form.area}
                     onChange={(e) => update("area", e.target.value)}
-                    autoComplete="address-level2"
+                    autoComplete="address-level2" required={true}
                   />
                 </div>
               </div>
@@ -153,7 +181,7 @@ export default function Signup() {
                     placeholder="Bangladesh"
                     value={form.country}
                     onChange={(e) => update("country", e.target.value)}
-                    autoComplete="country-name"
+                    autoComplete="country-name" required={true}
                   />
                 </div>
                 <div>
@@ -163,7 +191,7 @@ export default function Signup() {
                     placeholder="1216"
                     value={form.zip}
                     onChange={(e) => update("zip", e.target.value)}
-                    autoComplete="postal-code"
+                    autoComplete="postal-code" required={true}
                   />
                 </div>
               </div>
