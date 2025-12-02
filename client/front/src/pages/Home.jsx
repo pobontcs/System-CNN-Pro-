@@ -44,9 +44,9 @@ export default function Home(){
       <Container>
         <div className="py-16 grid md:grid-cols-3 gap-6">
           {[
-            { img: "/Image/Features/feature1.jpg", title: "AI Disease Detection", text: "Identify crop diseases instantly using deep learning." },
-            { img: "/Image/Features/feature2.jpg", title: "Explainable Visualization", text: "See exactly which leaf areas the model focused on." },
-            { img: "/Image/Features/feature3.jpg", title: "Actionable Insights", text: "Get treatment and prevention recommendations tailored to your crop." },
+            { img: "/Image/Features/feature1.png", title: "AI Disease Detection", text: "Identify crop diseases instantly using deep learning." },
+            { img: "/Image/Features/feature2.png", title: "Explainable Visualization", text: "See exactly which leaf areas the model focused on." },
+            { img: "/Image/Features/feature3.png", title: "Actionable Insights", text: "Get treatment and prevention recommendations tailored to your crop." },
           ].map((f, i) => (
             <motion.div
               key={i}

@@ -71,7 +71,7 @@ export default function Signup() {
         {/* Left: full-bleed image + overlay text */}
         <div className="hidden md:block relative">
           <img
-            src="/Image/Hero/hero1.jpg"
+            src="/Image/Hero/hero2.png"
             alt="Farmer field / crop health"
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -107,7 +107,7 @@ export default function Signup() {
                 <label className="block text-sm font-medium mb-1">Full name</label>
                 <input
                   className="w-full rounded-md border p-2 bg-white/70"
-                  placeholder="Sabbir Ahmed"
+                  placeholder=""
                   value={form.name}
                   onChange={(e) => update("name", e.target.value)}
                   autoComplete="name"
@@ -118,7 +118,7 @@ export default function Signup() {
                 <label className="block text-sm font-medium mb-1">Email</label>
                 <input
                   className="w-full rounded-md border p-2 bg-white/70"
-                  placeholder="you@farmmail.com"
+                  placeholder=""
                   type="email"
                   value={form.email}
                   onChange={(e) => update("email", e.target.value)}
@@ -131,7 +131,7 @@ export default function Signup() {
                 <label className="block text-sm font-medium mb-1">Password</label>
                 <input
                   className="w-full rounded-md border p-2 bg-white/70"
-                  placeholder="Create a strong password"
+                  placeholder=""
                   type="password"
                   value={form.password}
                   onChange={(e) => update("password", e.target.value)}
@@ -143,7 +143,7 @@ export default function Signup() {
                 <label className="block text-sm font-medium mb-1">Phone number</label>
                 <input
                   className="w-full rounded-md border p-2 bg-white/70"
-                  placeholder="+8801XXXXXXXXX"
+                  placeholder=""
                   value={form.phone}
                   onChange={(e) => update("phone", e.target.value)}
                   autoComplete="tel" required={true}
@@ -155,7 +155,7 @@ export default function Signup() {
                   <label className="block text-sm font-medium mb-1">Region / State</label>
                   <input
                     className="w-full rounded-md border p-2 bg-white/70"
-                    placeholder="Dhaka Division"
+                    placeholder=""
                     value={form.region}
                     onChange={(e) => update("region", e.target.value)}
                     autoComplete="address-level1" required={true}
@@ -165,7 +165,7 @@ export default function Signup() {
                   <label className="block text-sm font-medium mb-1">Area / City</label>
                   <input
                     className="w-full rounded-md border p-2 bg-white/70"
-                    placeholder="Mirpur"
+                    placeholder=""
                     value={form.area}
                     onChange={(e) => update("area", e.target.value)}
                     autoComplete="address-level2" required={true}
@@ -178,7 +178,7 @@ export default function Signup() {
                   <label className="block text-sm font-medium mb-1">Country</label>
                   <input
                     className="w-full rounded-md border p-2 bg-white/70"
-                    placeholder="Bangladesh"
+                    placeholder=""
                     value={form.country}
                     onChange={(e) => update("country", e.target.value)}
                     autoComplete="country-name" required={true}
@@ -188,7 +188,7 @@ export default function Signup() {
                   <label className="block text-sm font-medium mb-1">ZIP / Postal code</label>
                   <input
                     className="w-full rounded-md border p-2 bg-white/70"
-                    placeholder="1216"
+                    placeholder=""
                     value={form.zip}
                     onChange={(e) => update("zip", e.target.value)}
                     autoComplete="postal-code" required={true}
