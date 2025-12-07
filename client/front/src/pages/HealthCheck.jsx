@@ -1,16 +1,49 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { jsPDF } from "jspdf";
-import Nav from "../components/Layout/Nav";
+import { Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+
 // --- CONFIGURATION ---
-const GEMINI_API_KEY = "AIzaSyAsr3ewbk2IktvoR1QyvNQNdlHkCqzNbWY"; 
+const GEMINI_API_KEY = "AIzaSyCEcCs1HRT0aprnhK1FRFtCE4wFHpqCcJo"; // Your Key
 
 const DJANGO_BASE = "http://127.0.0.1:8000/api";
 const ML_BASE = "http://127.0.0.1:2526/api";
 
 // --- INLINE COMPONENTS ---
 
+function Nav() {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    try {
+      const u = localStorage.getItem("user");
+      if (u && u !== "undefined") setUser(JSON.parse(u));
+    } catch(e) {}
+  }, []);
 
+  return (
+    <nav className="bg-white border-b h-14 flex items-center px-4 md:px-6 shadow-sm sticky top-0 z-50">
+    <Link to="/" className="font-bold text-xl text-green-600 flex items-center gap-2 no-underline">
+      <span>🌱</span> Smart CropCare
+    </Link>
+    
+    {/* Show Name and ID if logged in */}
+    {user && (
+      <span className="text-lg text-gray-500 font-normal ml-2 hidden sm:inline border-l pl-2 ">
+      {user.name && user.name !== "Farmer" ? user.name : "User"} 
+      <span className="text-green-600 font-bold ml-1">#{user.AcNo}</span>
+    </span>
+    
+    )}
+
+    <div className="ml-auto flex gap-4 text-sm font-medium text-gray-600">
+      <Link to="/dashboard" className="cursor-pointer hover:text-green-600">Dashboard</Link>
+      <Link to="/history" className="cursor-pointer hover:text-green-600">History</Link>
+    </div>
+  </nav>
+  );
+}
 
 function Container({ children }) {
   return <div className="max-w-5xl mx-auto px-4 py-6">{children}</div>;
@@ -63,6 +96,8 @@ async function infer(formData) {
   });
   if (!res.ok) throw new Error("AI Service Failed: " + res.statusText);
   const data = await res.json();
+  
+  // --- ADDED VISUALIZATION EXTRACTION HERE ---
   return {
     class_id: data.class_id,
     confidence: data.confidence,
@@ -70,15 +105,16 @@ async function infer(formData) {
     crop_type: data.crop_type,
     crop_stage: data.crop_stage,
     lat: data.lat,
-    lon: data.lon
+    lon: data.lon,
+    visualization: data.visualization || null // Extract heatmap/box image
   };
 }
 
 async function saveHistory(historyData) {
   const token = getToken();
-  console.log("📡 Sending to Django:", `${DJANGO_BASE}/save_history/`, historyData);
+  console.log("📡 Sending to Django:", `${DJANGO_BASE}/submit/`, historyData);
   
-  const res = await fetch(`${DJANGO_BASE}/save_history/`, {
+  const res = await fetch(`${DJANGO_BASE}/submit/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -95,21 +131,77 @@ async function saveHistory(historyData) {
   return await res.json();
 }
 
+// --- NEW EXTERNAL WEATHER & AIR API LOGIC ---
+
+// Helper to interpret WMO Weather Codes
+function getWeatherCondition(code) {
+  if (code === 0) return "Clear Sky";
+  if (code >= 1 && code <= 3) return "Partly Cloudy";
+  if (code >= 45 && code <= 48) return "Foggy";
+  if (code >= 51 && code <= 67) return "Rainy";
+  if (code >= 71 && code <= 77) return "Snowy";
+  if (code >= 80 && code <= 82) return "Heavy Rain";
+  if (code >= 95) return "Thunderstorm";
+  return "Unknown";
+}
+
+// Helper to interpret AQI
+function getAqiStatus(aqi) {
+  if (aqi <= 50) return "Good";
+  if (aqi <= 100) return "Moderate";
+  if (aqi <= 150) return "Unhealthy (Sensitive)";
+  if (aqi <= 200) return "Unhealthy";
+  if (aqi <= 300) return "Very Unhealthy";
+  return "Hazardous";
+}
+
 async function getWeather(lat, lon) {
   if (!lat || !lon) return null;
-  const res = await fetch(`${ML_BASE}/weather?lat=${lat}&lon=${lon}`);
-  if (!res.ok) return null;
-  return await res.json();
+  try {
+    // Using Open-Meteo Public API (Free, no key required)
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,rain,weather_code&wind_speed_unit=kmh`
+    );
+    if (!res.ok) throw new Error("Open-Meteo Weather API failed");
+    
+    const data = await res.json();
+    const current = data.current;
+    
+    return { 
+      temp_c: current.temperature_2m, 
+      humidity: current.relative_humidity_2m, 
+      rain_mm: current.rain, 
+      condition: getWeatherCondition(current.weather_code)
+    };
+  } catch (e) {
+    console.warn("Weather API failed, using fallback:", e);
+    return { temp_c: "--", humidity: "--", rain_mm: 0, condition: "N/A" };
+  }
 }
 
 async function getAirQuality(lat, lon) {
   if (!lat || !lon) return null;
-  const res = await fetch(`${ML_BASE}/air?lat=${lat}&lon=${lon}`);
-  if (!res.ok) return null;
-  return await res.json();
+  try {
+    // Using Open-Meteo Air Quality API (Free)
+    const res = await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`
+    );
+    if (!res.ok) throw new Error("Open-Meteo Air API failed");
+
+    const data = await res.json();
+    const aqi = data.current.us_aqi;
+
+    return { 
+      aqi: aqi, 
+      status: getAqiStatus(aqi) 
+    };
+  } catch (e) {
+    console.warn("Air API failed, using fallback:", e);
+    return { aqi: "--", status: "N/A" };
+  }
 }
 
-// --- UPDATED: Helper to get Area, City, State, Country ---
+// --- Helper to get Area, City, State, Country ---
 async function getLocationName(lat, lon) {
   if (!lat || !lon) return null;
   try {
@@ -117,19 +209,13 @@ async function getLocationName(lat, lon) {
     const data = await res.json();
     const addr = data.address;
     
-    // Build specific string: Area, City, State, Country
     const parts = [
-        // 1. Area / Neighborhood
         addr.neighbourhood || addr.suburb || addr.residential || addr.village, 
-        // 2. City / Town
         addr.city || addr.town || addr.municipality,
-        // 3. State / Division
         addr.state || addr.region,
-        // 4. Country
         addr.country
-    ].filter(Boolean); // Remove null/undefined values
+    ].filter(Boolean); 
     
-    // Remove duplicates and join with commas
     return [...new Set(parts)].join(", ");
   } catch (e) {
     console.warn("Failed to reverse geocode", e);
@@ -137,8 +223,12 @@ async function getLocationName(lat, lon) {
   }
 }
 
-// --- NEW GEMINI API FUNCTION ---
+// --- GEMINI API FUNCTION ---
 async function fetchGeminiSolution(crop, disease) {
+  if (!GEMINI_API_KEY) {
+    return "⚠️ Please add your Gemini API Key.";
+  }
+
   const prompt = `Act as an agricultural expert. My ${crop} plant has been diagnosed with ${disease}. 
   Provide a concise treatment plan in BENGALI language. 
   Include 2 organic cures and 2 chemical medicines. 
@@ -146,36 +236,51 @@ async function fetchGeminiSolution(crop, disease) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        body: JSON.stringify({ 
+            contents: [{ parts: [{ text: prompt }] }],
+            safetySettings: [
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+            ]
+        }),
       }
     );
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No solution found.";
+    
+    if (data.error) return `API Error: ${data.error?.message}`;
+    
+    if (data.candidates && data.candidates.length > 0) {
+        if (data.candidates[0].finishReason === "SAFETY") {
+             return "⚠️ Content blocked by AI safety filters.";
+        }
+        return data.candidates[0].content.parts[0].text;
+    }
+
+    return "No solution found.";
   } catch (error) {
-    console.error("Gemini Error:", error);
-    return "Error fetching solution. Please check your internet connection.";
+    console.error("Network Error:", error);
+    return "Network error. Check connection.";
   }
 }
 
 // --- CONSTANTS ---
 const CLASS_NAMES = [
-  "Pepper bell Bacterial spot",
+  "Pepper bell Bacterial_spot",
   "Pepper bell healthy",
   "Potato Early blight",
   "Potato healthy",
-  "Potato Late_blight",
-  "Tomato Target_Spot",
-  "Tomato Tomato_mosaic virus",
+  "Potato Late blight",
+  "Tomato Target Spot",
+  "Tomato Tomato mosaic virus",
   "Tomato Tomato YellowLeaf Curl Virus",
   "Tomato Bacterial spot",
   "Tomato Early blight",
   "Tomato healthy",
-  "Tomato Late Blight",
+  "Tomato Late blight",
   "Tomato Leaf Mold",
   "Tomato Septoria leaf spot",
   "Tomato Spider mites Two spotted spider mite",
@@ -204,7 +309,6 @@ function HealthCheckContent() {
   const [loc, setLoc] = useState(null);
   const [geoErr, setGeoErr] = useState("");
   
-  // NEW STATES
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pdfReady, setPdfReady] = useState(false);
@@ -213,7 +317,6 @@ function HealthCheckContent() {
 
   const fileRef = useRef(null);
 
-  // Retrieve User Info for Header
   const user = useMemo(() => {
     try {
       const u = localStorage.getItem("user");
@@ -223,7 +326,7 @@ function HealthCheckContent() {
     }
   }, []);
 
-  // Load jsPDF
+
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
@@ -232,7 +335,7 @@ function HealthCheckContent() {
     return () => { document.body.removeChild(script); }
   }, []);
 
-  // Location Logic
+
   useEffect(() => {
     if (isLocationEnabled) {
       if (!navigator.geolocation) {
@@ -267,11 +370,10 @@ function HealthCheckContent() {
     if (f) {
       setImageFile(f);
       setPreview(URL.createObjectURL(f));
-      setSolution(""); // Clear previous solution on new image
+      setSolution("");
     }
   }
 
-  // Queries
   const { data: weather } = useQuery({
     queryKey: ["weather", loc?.lat, loc?.lon],
     enabled: Boolean(loc?.lat),
@@ -284,7 +386,6 @@ function HealthCheckContent() {
     queryFn: () => getAirQuality(loc.lat, loc.lon),
   });
 
-  // Query to fetch Location Name (Area, City, State, Country)
   const { data: locationName } = useQuery({
     queryKey: ["locationName", loc?.lat, loc?.lon],
     enabled: Boolean(loc?.lat),
@@ -318,25 +419,19 @@ function HealthCheckContent() {
   function onSubmit(e) {
     e.preventDefault();
     if (!imageFile) return;
-    setSolution(""); // Clear old solution
+    setSolution(""); 
     inferMut.mutate({ image: imageFile, cropType, cropStage, loc });
   }
 
-  // --- HANDLER FOR GENERATING AI SOLUTION ---
   async function handleGetCure() {
     if (!inferMut.data) return;
-    
     setLoadingSolution(true);
     const diseaseName = CLASS_NAMES[inferMut.data.class_id] || "Unknown Disease";
-    
-    // Call Gemini
     const text = await fetchGeminiSolution(cropType, diseaseName);
-    
     setSolution(text);
     setLoadingSolution(false);
   }
 
-  // Save & PDF Handler
   async function handleSaveAndPdf() {
     if (!inferMut.data) return;
     setIsSaving(true);
@@ -344,7 +439,7 @@ function HealthCheckContent() {
     try {
       const diseaseName = CLASS_NAMES[inferMut.data.class_id] || "Unknown";
 
-      // A. Save to Django
+
       if (user && user.AcNo) {
         try {
             await saveHistory({
@@ -353,7 +448,7 @@ function HealthCheckContent() {
             disease: diseaseName,
             temperature: weather?.temp_c || null,
             humidity: weather?.humidity || null,
-            location: locationName, // Pass the detected Area/City/State to DB
+            location: locationName, 
             lat: loc?.lat,
             lon: loc?.lon
             });
@@ -366,42 +461,33 @@ function HealthCheckContent() {
         alert("Not logged in. Report not saved to account.");
       }
 
-      // B. Generate PDF
+ 
       if (window.jspdf) {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
-          
           doc.setFontSize(22);
           doc.setTextColor(46, 125, 50); 
           doc.text("Smart CropCare Report", 20, 20);
-          
           doc.setFontSize(10);
           doc.setTextColor(100);
           doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
-          
           if (user && user.AcNo) {
              doc.text(`Farmer ID: #${user.AcNo}`, 150, 30);
           }
-
           doc.setLineWidth(0.5);
           doc.line(20, 35, 190, 35);
-    
           doc.setFontSize(14);
           doc.setTextColor(0);
           doc.text("Diagnosis Results", 20, 50);
-          
           doc.setFontSize(12);
           doc.text(`Crop: ${cropType}`, 20, 60);
           doc.text(`Stage: ${cropStage}`, 20, 70);
-          
           doc.setFontSize(14);
           doc.setTextColor(220, 53, 69); 
           doc.text(`Identified Issue: ${diseaseName}`, 20, 85);
-          
           doc.setFontSize(12);
           doc.setTextColor(0);
           doc.text(`Confidence: ${Math.round((inferMut.data.confidence || 0) * 100)}%`, 20, 95);
-    
           if (weather) {
             doc.setFontSize(14);
             doc.text("Environmental Context", 20, 115);
@@ -410,19 +496,11 @@ function HealthCheckContent() {
             doc.text(`Humidity: ${weather.humidity}%`, 20, 135);
             if (locationName) {
                 doc.text(`Location: ${locationName}`, 20, 145);
-            } else if(loc) {
-               doc.text(`Coordinates: ${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}`, 20, 145);
             }
           }
-          
-          doc.setFontSize(10);
-          doc.setTextColor(150);
-          doc.text("Note: View the full Bengali treatment plan on the app.", 20, 270);
-    
           doc.save(`CropReport_${Date.now()}.pdf`);
           alert("Report downloaded!");
       } 
-
     } catch (err) {
       console.error(err);
       alert("Failed: " + err.message);
@@ -435,21 +513,22 @@ function HealthCheckContent() {
     <>
       <Nav />
       <Container>
-        {/* --- HEADER WITH ID --- */}
+      <h3 className="text-3xl font-bold mb-20 text-emerald-600">Scan disease with Cropvision 2.0</h3>
         <div className="flex items-center justify-between mb-4">
+          
           <h1 className="text-2xl font-bold flex items-center gap-3">
-            Health Check
+           
             {user?.AcNo && (
               <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
-                Account ID: <span className="text-gray-900 font-bold">{user.AcNo}</span>
+                Account ID: <span className="text-gray-900 font-bold ">{user.AcNo}</span>
               </span>
             )}
           </h1>
         </div>
 
         <form onSubmit={onSubmit} className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column */}
           <div className="lg:col-span-2 rounded-2xl border bg-[#F1EDE8] p-4">
+    
             <div className="grid sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1">Crop</label>
@@ -463,7 +542,6 @@ function HealthCheckContent() {
                   {cropStages.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
               </div>
-              
               <div className="flex flex-col justify-end pb-1">
                 <label className="block text-sm font-medium mb-2 text-gray-700">Location</label>
                 <div className="flex items-center gap-3">
@@ -488,7 +566,6 @@ function HealthCheckContent() {
                  <div className="flex items-center gap-1">
                     📍 <span className="font-mono">{loc.lat.toFixed(4)}, {loc.lon.toFixed(4)}</span>
                  </div>
-                 {/* Display Location Name */}
                  {locationName && (
                     <div className="font-semibold text-gray-800">{locationName}</div>
                  )}
@@ -527,7 +604,7 @@ function HealthCheckContent() {
             </button>
           </div>
 
-          {/* Right Column */}
+          {/* Right Column: Results */}
           <div className="rounded-2xl border bg-[#F1EDE8] p-4 flex flex-col h-full">
             <h3 className="font-bold mb-3 text-lg">Results</h3>
 
@@ -543,6 +620,25 @@ function HealthCheckContent() {
                       Confidence: <span className="font-mono bg-gray-100 px-1 rounded">{Math.round((inferMut.data.confidence || 0) * 100)}%</span>
                     </div>
                     
+                    {/* --- ADDED: DISEASE VISUALIZATION --- */}
+                    {inferMut.data.visualization ? (
+                      <div className="mt-4 border-t pt-3">
+                        <div className="text-xs font-semibold text-gray-500 mb-2">DETECTION OUTPUT</div>
+                        <div className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex justify-center">
+                          <img 
+                            src={`data:image/jpeg;base64,${inferMut.data.visualization}`} 
+                            alt="AI Detection Output" 
+                            className="max-h-64 object-contain" 
+                          />
+                        </div>
+                      </div>
+                    ) : preview && (
+                      <div className="mt-4 border-t pt-3 opacity-70">
+                        <div className="text-xs font-semibold text-gray-500 mb-2">ORIGINAL IMAGE</div>
+                        <img src={preview} alt="Uploaded" className="w-full h-32 object-cover rounded border" />
+                      </div>
+                    )}
+
                     {/* --- GET CURE BUTTON --- */}
                     <div className="mt-4 border-t pt-3">
                       <button 
@@ -576,7 +672,6 @@ function HealthCheckContent() {
                 <div className="mt-4 bg-white/60 p-3 rounded border text-sm">
                   <div className="font-semibold mb-1">
                     Local Weather 
-                    {/* Display Location Name in Weather Box too */}
                     {locationName && <span className="font-normal text-gray-600 ml-1">({locationName})</span>}
                   </div>
                   <div>Temp: {weather.temp_c}°C</div>

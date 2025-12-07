@@ -15,7 +15,7 @@ def thelo(request):
 
 @csrf_exempt
 def signup(request):
-    # 1. Handle Preflight (CORS) - This part is good!
+    # (CORS) 
     if request.method == 'OPTIONS':
         response = JsonResponse({'message': 'OK'})
         response['Access-Control-Allow-Origin'] = '*'
@@ -23,26 +23,26 @@ def signup(request):
         response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         return response
 
-    # 2. Handle POST
+    # POST
     if request.method == 'POST': 
         try:
            data = json.loads(request.body)
            
-           # --- FIX 1: Check EMAIL against EMAIL, not AcNo ---
+           
            if Account.objects.filter(email=data['email']).exists():
                return JsonResponse({'message': 'Email already registered'}, status=400)
            
-           # Check Phone separately (cleaner error handling)
+       
            if data.get('phone') and Account.objects.filter(phone=data['phone']).exists():
                return JsonResponse({'message': 'Phone number already registered'}, status=400)
            
-           # Create the account
+     
            new_account = Account(
                name=data['name'],
                email=data['email'],
                password=make_password(data['password']),
                
-               # CRITICAL: Convert empty string "" to None so database accepts it
+        
                phone=data.get('phone') or None, 
                
                region=data.get('region'),
@@ -57,7 +57,7 @@ def signup(request):
         except Exception as e:
             return JsonResponse({'message':'Invalid data format', 'error': str(e)}, status=400)
         
-    # --- FIX 2: This must be OUTSIDE the 'if' block ---
+
     return JsonResponse({'error': "Method not allowed"}, status=405)
 @csrf_exempt
 def login(request):
@@ -108,31 +108,29 @@ def save_history(request):
         try:
             data = json.loads(request.body)
             
-            # --- DEBUGGING PRINTS ---
+          
             print("\n" + "="*40)
-            print("📩 RECEIVED HISTORY DATA:")
-            print(f"User ID (AcNo): {data.get('account_acno')}")
+            
+            print(f" AcNo: {data.get('account_acno')}")
             print(f"Crop: {data.get('crop_type')}")
             print(f"Disease: {data.get('disease')}")
             print(f"Coordinates: {data.get('lat')}, {data.get('lon')}")
             print("="*40 + "\n")
-            # ------------------------
-
-            # 1. Retrieve Data
+    
             account_acno = data.get('account_acno')
             crop_type = data.get('crop_type')
             disease = data.get('disease')
             temperature = data.get('temperature')
             humidity = data.get('humidity')
             
-            # 2. Handle Location (Use getLocation logic)
+           
             lat = data.get('lat')
             lon = data.get('lon')
-            location_val = data.get('location') # Default to manual input if available
+            location_val = data.get('location') 
 
             if lat and lon:
                 try:
-                    print("📍 Converting Coordinates to Address...") # Debug
+                   
                     generated_name = getLocation(float(lat), float(lon))
                     if generated_name:
                         location_val = generated_name
@@ -142,14 +140,14 @@ def save_history(request):
                 except ValueError:
                     print("⚠️ Invalid coordinate format.")
 
-            # 3. Find the Account
+      
             try:
                 account = Account.objects.get(AcNo=account_acno)
             except Account.DoesNotExist:
-                print(f"❌ Account {account_acno} not found!") # Debug
+                print(f"Account {account_acno} not found!") # Debug
                 return JsonResponse({'message': 'Account does not exist'}, status=400)
 
-            # 4. Save Record
+
             history_record = History(
                 account_acno=account,
                 crop_type=crop_type,
@@ -173,3 +171,37 @@ def save_history(request):
             return JsonResponse({'message': 'Invalid data format', 'error': str(e)}, status=400)
             
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@csrf_exempt
+def get_history(request):
+    
+  if request.method=="GET":
+    try:
+        limit = int(request.GET.get('limit', 100))
+        offset = int(request.GET.get('offset', 0))
+        
+        histories = History.objects.all().order_by('-record_date')[offset:offset+limit]
+        
+        data=[]
+        
+        for h in histories:
+            data.append(
+                {
+                    'recordNo':h.recordNo,
+                    'disease':h.disease,
+                    'crop_type':h.crop_type,
+                    'temperature':h.temperature,
+                    'humidity':h.humidity,
+                    'location':h.location,
+                    'date':h.record_date,
+                    
+                }
+            )
+        
+        
+        return JsonResponse({'message':'History fetched successfully', 'data':data},safe=False, status=200)
+    
+    except Exception as e:
+        return JsonResponse({'message':'Error fetching history', 'error': str(e)}, status=400)
+  return JsonResponse({'error': 'Method not allowed'}, status=405)

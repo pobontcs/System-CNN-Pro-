@@ -1,24 +1,103 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import Nav from "../components/Layout/Nav";
-import Container from "../components/Layout/Container";
-import { useQuery } from "@tanstack/react-query";
-import { listDetections } from "../lib/api";
+// --- CONFIGURATION ---
+const DJANGO_BASE = "http://127.0.0.1:8000/api";
 
-export default function History() {
+// --- INLINE COMPONENTS ---
+
+
+
+function Container({ children }) {
+  return <div className="max-w-5xl mx-auto px-4 py-6">{children}</div>;
+}
+
+// --- MAIN PAGE COMPONENT ---
+
+function HistoryContent() {
+  // 1. Declare State
   const [query, setQuery] = useState("");
-  const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["detections", 500],
-    queryFn: () => listDetections({ limit: 500 }),
-  });
+  const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  // 2. Custom useEffect to Fetch Data
+  useEffect(() => {
+    let isMounted = true; // Flag to prevent state updates if component unmounts
+
+    async function fetchHistoryData() {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const token = localStorage.getItem("cc_token");
+        // Ensure this matches your urls.py path: path('api/history_list/', ...)
+        const url = `${DJANGO_BASE}/history_list/?limit=500`;
+
+        console.log("Fetching real history from:", url);
+
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Server Error: ${res.status} ${errText}`);
+        }
+
+        const jsonResponse = await res.json();
+        
+        // Handle both response formats: { data: [...] } OR [...]
+        let data = [];
+        if (Array.isArray(jsonResponse)) {
+            data = jsonResponse;
+        } else if (jsonResponse && Array.isArray(jsonResponse.data)) {
+            data = jsonResponse.data;
+        }
+
+        if (isMounted) {
+          setRows(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch history:", err);
+        if (isMounted) {
+          setError(err);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchHistoryData();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array = run once on mount
+
+  // 3. Filter Logic
   const filtered = useMemo(() => {
+    if (!Array.isArray(rows)) return [];
+
     const q = query.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter(r =>
-      (r.label || "").toLowerCase().includes(q) ||
-      (r.severity || "").toLowerCase().includes(q) ||
-      (r.crop_type || "").toLowerCase().includes(q)
-    );
+
+    return rows.filter(r => {
+      const disease = (r.disease || r.label || "").toLowerCase();
+      const crop = (r.crop_type || "").toLowerCase();
+      const loc = (r.location || "").toLowerCase();
+      const rec = String(r.recordNo || "");
+
+      return disease.includes(q) || crop.includes(q) || loc.includes(q) || rec.includes(q);
+    });
   }, [rows, query]);
 
   return (
@@ -29,53 +108,76 @@ export default function History() {
           <h1 className="text-2xl font-bold">Scan History</h1>
           <input
             className="rounded-md border p-2 bg-white/80 w-60"
-            placeholder="Search disease / severity / crop"
+            placeholder="Search Record, Disease, Address..."
             value={query}
             onChange={(e)=>setQuery(e.target.value)}
           />
         </div>
 
-        <div className="rounded-2xl border shadow-sm bg-[#F1EDE8] p-3 overflow-auto">
-          {isLoading && <div className="text-sm text-gray-600">Loading…</div>}
-          {!isLoading && filtered.length === 0 && (
-            <div className="text-sm text-gray-600">No scans found.</div>
+        <div className="rounded-2xl border shadow-sm bg-[#F1EDE8] p-3 overflow-auto min-h-[50vh]">
+          {isLoading && <div className="text-sm text-gray-600 p-4">Loading history records...</div>}
+          
+          {error && (
+            <div className="text-sm text-red-600 p-4 bg-red-50 border border-red-200 rounded">
+              <strong>Error:</strong> Could not load history. {error.message}
+            </div>
+          )}
+          
+          {!isLoading && !error && filtered.length === 0 && (
+            <div className="text-sm text-gray-600 p-4">No history records found.</div>
           )}
 
-          {filtered.length > 0 && (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-2 pr-3">When</th>
-                  <th className="py-2 pr-3">Crop</th>
-                  <th className="py-2 pr-3">Disease</th>
-                  <th className="py-2 pr-3">Severity</th>
-                  <th className="py-2 pr-3">Confidence</th>
-                  <th className="py-2 pr-3">Location</th>
-                  <th className="py-2 pr-3">Preview</th>
+          {!isLoading && filtered.length > 0 && (
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-100 text-gray-700 uppercase font-semibold">
+                <tr className="border-b">
+                  <th className="py-3 px-3">Record No</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 px-3">Crop</th>
+                  <th className="py-3 px-3">Disease</th>
+                  <th className="py-3 px-3">Temp</th>
+                  <th className="py-3 px-3">Humidity</th>
+                  <th className="py-3 px-3">Address</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {filtered.map((r, i) => (
-                  <tr key={r.id || i} className="border-b last:border-0">
-                    <td className="py-2 pr-3">{r.captured_at ? new Date(r.captured_at).toLocaleString() : "-"}</td>
-                    <td className="py-2 pr-3 capitalize">{r.crop_type || "-"}</td>
-                    <td className="py-2 pr-3">{r.label || "-"}</td>
-                    <td className="py-2 pr-3 capitalize">
-                      <span className={`px-2 py-0.5 rounded-md ${
-                        r.severity === "high" ? "bg-red-100 text-red-700" :
-                        r.severity === "medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                      }`}>
-                        {r.severity || "low"}
-                      </span>
+                  <tr key={r.recordNo || i} className="hover:bg-white/50 transition-colors">
+                    {/* Record Number */}
+                    <td className="py-3 px-3 font-mono font-bold text-gray-600">
+                      #{r.recordNo}
                     </td>
-                    <td className="py-2 pr-3">{r.confidence != null ? `${Math.round(r.confidence*100)}%` : "-"}</td>
-                    <td className="py-2 pr-3">
-                      {r.lat && r.lon ? `${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}` : "-"}
+
+                    {/* Date */}
+                    <td className="py-3 px-3 whitespace-nowrap text-gray-600">
+                      {r.record_date 
+                        ? new Date(r.record_date).toLocaleString() 
+                        : (r.captured_at ? new Date(r.captured_at).toLocaleString() : "-")}
                     </td>
-                    <td className="py-2 pr-3">
-                      {r.image_url ? (
-                        <img src={r.image_url} alt="" className="h-12 w-12 rounded border object-cover" />
-                      ) : "-"}
+
+                    {/* Crop Type */}
+                    <td className="py-3 px-3 capitalize font-medium">
+                      {r.crop_type || "-"}
+                    </td>
+
+                    {/* Disease Name */}
+                    <td className="py-3 px-3 text-red-600 font-medium">
+                      {r.disease || r.label || "Unknown"}
+                    </td>
+
+                    {/* Temperature */}
+                    <td className="py-3 px-3">
+                      {r.temperature ? `${r.temperature}°C` : "-"}
+                    </td>
+
+                    {/* Humidity */}
+                    <td className="py-3 px-3">
+                      {r.humidity ? `${r.humidity}%` : "-"}
+                    </td>
+
+                    {/* Location */}
+                    <td className="py-3 px-3 text-gray-500 text-xs max-w-[200px] truncate" title={r.location}>
+                      {r.location || (r.lat ? `${r.lat}, ${r.lon}` : "-")}
                     </td>
                   </tr>
                 ))}
@@ -85,5 +187,15 @@ export default function History() {
         </div>
       </Container>
     </>
+  );
+}
+
+const queryClient = new QueryClient();
+
+export default function History() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <HistoryContent />
+    </QueryClientProvider>
   );
 }

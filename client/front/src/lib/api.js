@@ -61,7 +61,7 @@ export async function getTips() {
 
 export async function saveHistory(historyData) {
   // This calls: http://127.0.0.1:8000/api/save_history/
-  const { data } = await djangoHttp.post("/save_history/", historyData);
+  const { data } = await djangoHttp.post("/submit/", historyData);
   return data;
 }
 
