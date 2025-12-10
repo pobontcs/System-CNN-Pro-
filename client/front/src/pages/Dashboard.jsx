@@ -192,7 +192,7 @@ const getDiseaseForPrompt = (stats) => {
         : "General Crops";
 }
 
-const GEMINI_API_KEY = "AIzaSyARKkQF1XgjmkTBbTAx_niG_QPd6DYpGmI"; 
+const GEMINI_API_KEY = ""; 
 
 async function getTips(statsData) {
     

@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import { Navigate, Link } from "react-router-dom";
 
 
-const GEMINI_API_KEY = "AIzaSyDujRet8PH6KD2opnjK_7UOPRSWB6iF8fU"; 
+const GEMINI_API_KEY = ""; 
 
 const DJANGO_BASE = "http://127.0.0.1:8000/api";
 const ML_BASE = "http://127.0.0.1:2526/api";
