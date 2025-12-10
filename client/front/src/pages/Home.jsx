@@ -3,60 +3,112 @@ import Nav from "../components/Layout/Nav";
 import Container from "../components/Layout/Container";
 import { Link } from "react-router-dom";
 
-export default function Home(){
+export default function Home() {
   return (
     <>
       <Nav />
-      <section className="relative overflow-hidden">
+
+      {/* HERO SECTION */}
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden bg-gradient-to-br from-green-50 via-white to-green-100">
+        
+        {/* Abstract floating shapes */}
+        <div className="absolute -top-20 -left-20 w-96 h-96 bg-green-300/30 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-40 -right-20 w-72 h-72 bg-lime-400/20 rounded-full blur-2xl animate-pulse"></div>
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-green-300/10 blur-3xl rounded-full"></div>
+
         <img
-          src="/Image/Hero/hero1.jpg"
-          alt="Crop field background"
-          className="absolute inset-0 w-full h-full object-cover opacity-40"
+          src="src/assets/AIPRO.jpg"
+          alt="Background"
+          className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-multiply"
         />
-        <div className="relative z-10">
+
+        <div className="relative z-10 w-full">
           <Container>
-            <div className="py-20 text-center">
-              <motion.h1
-                initial={{opacity:0, y:12}}
-                animate={{opacity:1, y:0}}
-                className="text-5xl font-extrabold leading-tight"
+            <div className="py-24 text-center">
+            <motion.h1
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.7 }}
+                  className="
+                           text-6xl md:text-7xl font-extrabold tracking-tight
+                            bg-[linear-gradient(270deg,#7a1fa2,#1e5ad7,#00c8d2,#1ed88f)]
+                               bg-clip-text text-transparent
+                                 font-[Orbitron]
+                               ">
+  CROP VISION AI beta
+</motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mt-4 text-xl text-gray-700 max-w-2xl mx-auto"
               >
-                Smarter Crop Health Detection 🌿
-              </motion.h1>
-              <p className="mt-4 text-gray-700 text-lg max-w-2xl mx-auto">
-                Instantly analyze leaf health, detect diseases, and receive actionable
-                insights using AI — all on one platform.
-              </p>
-              <div className="mt-8 flex justify-center gap-4">
-                <Link to="/signup" className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg">
+                Detect crop diseases, monitor plant health, and receive regional alerts powered by state-of-the-art AI.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="mt-10 flex justify-center gap-4"
+              >
+                <Link
+                  to="/signup"
+                  className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-xl shadow-green-300/40 hover:shadow-green-500/50 transition-all"
+                >
                   Get Started
                 </Link>
-                <Link to="/health" className="border border-gray-900 text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-100">
+                <Link
+                  to="/health"
+                  className="px-8 py-3 border border-green-700 text-green-700 rounded-xl bg-white/60 backdrop-blur hover:bg-white shadow-lg transition-all"
+                >
                   Try Health Check
                 </Link>
-              </div>
+              </motion.div>
             </div>
           </Container>
         </div>
       </section>
 
-      {/* Features section */}
+      {/* FEATURES */}
       <Container>
-        <div className="py-16 grid md:grid-cols-3 gap-6">
+        <div className="py-20 grid md:grid-cols-3 gap-10">
           {[
-            { img: "/Image/Features/feature1.jpg", title: "AI Disease Detection", text: "Identify crop diseases instantly using deep learning." },
-            { img: "/Image/Features/feature2.jpg", title: "Explainable Visualization", text: "See exactly which leaf areas the model focused on." },
-            { img: "/Image/Features/feature3.jpg", title: "Actionable Insights", text: "Get treatment and prevention recommendations tailored to your crop." },
+            {
+              img: "src/assets/pepper.jpg",
+              title: "AI Disease Detection",
+              text: "Identify crop diseases instantly using advanced deep learning.",
+            },
+            {
+              img: "src/assets/tomato.jpg",
+              title: "Explainable Heatmaps",
+              text: "Visualize which leaf regions the AI focuses on for predictions.",
+            },
+            {
+              img: "src/assets/potato.jpg",
+              title: "Actionable Insights",
+              text: "Receive treatment suggestions and prevention strategies.",
+            },
           ].map((f, i) => (
             <motion.div
               key={i}
-              initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} transition={{delay: i*0.1}}
-              className="rounded-2xl border bg-white shadow-sm overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15 }}
+              className="group rounded-3xl bg-white/70 backdrop-blur-xl shadow-xl shadow-green-300/30 hover:shadow-2xl hover:shadow-green-400/40 transition-all overflow-hidden"
             >
-              <img src={f.img} alt={f.title} className="h-40 w-full object-cover" />
-              <div className="p-4">
-                <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
-                <p className="text-sm text-gray-600">{f.text}</p>
+              <div className="overflow-hidden">
+                <img
+                  src={f.img}
+                  alt={f.title}
+                  className="h-48 w-full object-cover group-hover:scale-105 transition-all duration-500"
+                />
+              </div>
+              <div className="p-6">
+                <h3 className="font-bold text-xl text-green-800">{f.title}</h3>
+                <p className="text-gray-700 mt-2">{f.text}</p>
               </div>
             </motion.div>
           ))}

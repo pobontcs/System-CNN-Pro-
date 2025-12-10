@@ -2,10 +2,10 @@ import React, { useMemo, useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import Nav from "../components/Layout/Nav";
-// --- CONFIGURATION ---
+
 const DJANGO_BASE = "http://127.0.0.1:8000/api";
 
-// --- INLINE COMPONENTS ---
+
 
 
 
@@ -13,18 +13,18 @@ function Container({ children }) {
   return <div className="max-w-5xl mx-auto px-4 py-6">{children}</div>;
 }
 
-// --- MAIN PAGE COMPONENT ---
+
 
 function HistoryContent() {
-  // 1. Declare State
+
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 2. Custom useEffect to Fetch Data
+  
   useEffect(() => {
-    let isMounted = true; // Flag to prevent state updates if component unmounts
+    let isMounted = true; 
 
     async function fetchHistoryData() {
       setIsLoading(true);
@@ -32,7 +32,7 @@ function HistoryContent() {
       
       try {
         const token = localStorage.getItem("cc_token");
-        // Ensure this matches your urls.py path: path('api/history_list/', ...)
+       
         const url = `${DJANGO_BASE}/history_list/?limit=500`;
 
         console.log("Fetching real history from:", url);
@@ -51,8 +51,7 @@ function HistoryContent() {
         }
 
         const jsonResponse = await res.json();
-        
-        // Handle both response formats: { data: [...] } OR [...]
+
         let data = [];
         if (Array.isArray(jsonResponse)) {
             data = jsonResponse;
@@ -77,13 +76,13 @@ function HistoryContent() {
 
     fetchHistoryData();
 
-    // Cleanup function
+ 
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array = run once on mount
+  }, []); 
 
-  // 3. Filter Logic
+
   const filtered = useMemo(() => {
     if (!Array.isArray(rows)) return [];
 

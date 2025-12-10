@@ -48,7 +48,7 @@ export default function Login() {
     }
 
     try {
-      // Call Django Login API
+   
       const res = await fetch("http://127.0.0.1:8000/api/login/", {
         method: "POST",
         headers: {
@@ -64,7 +64,7 @@ export default function Login() {
         return;
       }
 
-      // --- SUCCESS ---
+
       
       // 1. Set Auth Token
       setToken("session-active");
@@ -74,12 +74,12 @@ export default function Login() {
       const userPayload = {
         AcNo: data.id,
         email: email, 
-        name: data.name , // Fallback if name isn't sent
+        name: data.name , 
       };
       
       localStorage.setItem("user", JSON.stringify(userPayload));
 
-      // 3. Redirect to Dashboard
+     
       nav("/dashboard");
 
     } catch (error) {

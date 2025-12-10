@@ -19,8 +19,8 @@ export default function Nav() {
     <nav className="sticky top-0 z-20 border-b bg-[#F1EDE8]/90 backdrop-blur">
       <div className="mx-auto max-w-6xl px-6 py-3 flex gap-4 items-center">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg">
-        <img src="/Image/logo.png" alt="Smart CropCare company logo featuring crop monitoring iconography" className="h-10 w-10 object-contain" />
-        Smart CropCare
+        <img src="/Image/logo.png" alt=" Care company logo featuring crop monitoring iconography" className="h-10 w-10 object-contain" />
+            Crop Vision
         </Link>
        
 

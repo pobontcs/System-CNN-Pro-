@@ -1,16 +1,44 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { jsPDF } from "jspdf";
-import { Navigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 
-// --- CONFIGURATION ---
-const GEMINI_API_KEY = "AIzaSyCEcCs1HRT0aprnhK1FRFtCE4wFHpqCcJo"; // Your Key
+
+const GEMINI_API_KEY = "AIzaSyDujRet8PH6KD2opnjK_7UOPRSWB6iF8fU"; 
 
 const DJANGO_BASE = "http://127.0.0.1:8000/api";
 const ML_BASE = "http://127.0.0.1:2526/api";
 
-// --- INLINE COMPONENTS ---
+
+const FALLBACK_CURES = {
+  "default": "•  Consult a local agricultural officer.\n• Ensure proper drainage.\n• Isolate the affected plant.",
+  
+
+  "Pepper bell Bacterial_spot": "•  Spray fixed copper bactericides immediately.\n• Remove infected leaves/plants to stop spread.\n• Avoid overhead watering.\n• Rotate crops every 2-3 years.",
+  "Pepper bell healthy": "•  Plant is healthy! Continue regular watering.\n• Monitor for pests weekly.\n• Ensure soil drainage remains good.\n• Apply balanced fertilizer as scheduled.",
+  
+
+  "Potato Early blight": "• Apply fungicides containing Chlorothalonil or Mancozeb.\n• Remove lower infected leaves.\n• Use drip irrigation to keep foliage dry.\n• Practice crop rotation.",
+  "Potato healthy": "•   Your potato plants look healthy.\n• Keep hilling up soil around the base.\n• Monitor for beetles or aphids.\n• Maintain consistent moisture.",
+  "Potato Late blight": "•  CRITICAL: Destroy all infected plants immediately.\n• Spray fungicides like Metalaxyl or Cymoxanil.\n• Monitor weather: high humidity triggers rapid spread.\n• Do not compost infected tubers.",
+
+  "Tomato Target Spot": "•  Improve air circulation by pruning.\n• Apply fungicides (Azoxystrobin or Difenoconazole).\n• Avoid wetting leaves when watering.\n• Remove crop debris after harvest.",
+  "Tomato Tomato mosaic virus": "• No chemical cure exists. Remove infected plants.\n• Wash hands/tools with milk or bleach solution.\n• Control aphids which may spread viruses.\n• Use virus-free seeds next time.",
+  "Tomato Tomato YellowLeaf Curl Virus": "•  Control whiteflies using sticky traps or imidacloprid.\n• Use virus-resistant tomato varieties.\n• Remove weeds which harbor the virus.\n• Cover seedlings with floating row covers.",
+  "Tomato Bacterial spot": "• Apply copper sprays mixed with mancozeb.\n• Avoid working in the field when wet.\n• Remove symptomatic plants.\n• Use certified disease-free seeds.",
+  "Tomato Early blight": "•  Mulch soil to prevent spores splashing on leaves.\n• Stake plants to keep them off the ground.\n• Apply copper fungicide every 7-10 days.\n• Remove infected debris at end of season.",
+  "Tomato healthy": "•  Excellent! The plant is vibrant and disease-free.\n• Stake or cage plants for support.\n• Prune suckers for better fruit production.\n• Water consistently to prevent cracking.",
+  "Tomato Late blight": "•  Remove and destroy infected plants immediately.\n• Apply preventive copper sprays.\n• Ensure good airflow between plants.\n• Check daily during cool, wet weather.",
+  "Tomato Leaf Mold": "•  Increase spacing to lower humidity.\n• Water at the base, never the leaves.\n• Apply fungicides like Chlorothalonil if severe.\n• Ensure greenhouse ventilation (if applicable).",
+  "Tomato Septoria leaf spot": "•  Remove lower leaves where infection starts.\n• Apply fungicide (Chlorothalonil) on schedule.\n• Mulch around the base of the plant.\n• Rotate to a new spot next year.",
+  "Tomato Spider mites Two spotted spider mite": "•  Spray with Neem oil or insecticidal soap.\n• Increase humidity (mites hate moisture).\n• Release predatory mites (Phytoseiulus persimilis).\n• Remove heavily infested leaves."
+};
+
+function getFallbackSolution(disease) {
+  return FALLBACK_CURES[disease] || FALLBACK_CURES["default"];
+}
+
+
 
 function Nav() {
   const [user, setUser] = useState(null);
@@ -28,7 +56,7 @@ function Nav() {
       <span>🌱</span> Smart CropCare
     </Link>
     
-    {/* Show Name and ID if logged in */}
+ 
     {user && (
       <span className="text-lg text-gray-500 font-normal ml-2 hidden sm:inline border-l pl-2 ">
       {user.name && user.name !== "Farmer" ? user.name : "User"} 
@@ -79,7 +107,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// --- INLINE API LOGIC ---
 
 function getToken() {
   try {
@@ -97,7 +124,6 @@ async function infer(formData) {
   if (!res.ok) throw new Error("AI Service Failed: " + res.statusText);
   const data = await res.json();
   
-  // --- ADDED VISUALIZATION EXTRACTION HERE ---
   return {
     class_id: data.class_id,
     confidence: data.confidence,
@@ -106,7 +132,7 @@ async function infer(formData) {
     crop_stage: data.crop_stage,
     lat: data.lat,
     lon: data.lon,
-    visualization: data.visualization || null // Extract heatmap/box image
+    visualization: data.visualization || null 
   };
 }
 
@@ -131,9 +157,8 @@ async function saveHistory(historyData) {
   return await res.json();
 }
 
-// --- NEW EXTERNAL WEATHER & AIR API LOGIC ---
 
-// Helper to interpret WMO Weather Codes
+
 function getWeatherCondition(code) {
   if (code === 0) return "Clear Sky";
   if (code >= 1 && code <= 3) return "Partly Cloudy";
@@ -145,7 +170,6 @@ function getWeatherCondition(code) {
   return "Unknown";
 }
 
-// Helper to interpret AQI
 function getAqiStatus(aqi) {
   if (aqi <= 50) return "Good";
   if (aqi <= 100) return "Moderate";
@@ -158,7 +182,6 @@ function getAqiStatus(aqi) {
 async function getWeather(lat, lon) {
   if (!lat || !lon) return null;
   try {
-    // Using Open-Meteo Public API (Free, no key required)
     const res = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,rain,weather_code&wind_speed_unit=kmh`
     );
@@ -182,7 +205,6 @@ async function getWeather(lat, lon) {
 async function getAirQuality(lat, lon) {
   if (!lat || !lon) return null;
   try {
-    // Using Open-Meteo Air Quality API (Free)
     const res = await fetch(
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`
     );
@@ -201,7 +223,6 @@ async function getAirQuality(lat, lon) {
   }
 }
 
-// --- Helper to get Area, City, State, Country ---
 async function getLocationName(lat, lon) {
   if (!lat || !lon) return null;
   try {
@@ -223,16 +244,22 @@ async function getLocationName(lat, lon) {
   }
 }
 
-// --- GEMINI API FUNCTION ---
+
 async function fetchGeminiSolution(crop, disease) {
   if (!GEMINI_API_KEY) {
-    return "⚠️ Please add your Gemini API Key.";
+    console.warn("No Gemini API Key, using fallback.");
+    return getFallbackSolution(disease);
+  }
+
+
+  if (disease.toLowerCase().includes("healthy")) {
+    return getFallbackSolution(disease);
   }
 
   const prompt = `Act as an agricultural expert. My ${crop} plant has been diagnosed with ${disease}. 
   Provide a concise treatment plan in BENGALI language. 
   Include 2 organic cures and 2 chemical medicines. 
-  Keep it short, actionable, and formatted as bullet points.`;
+  Keep it short, actionable, and formatted as bullet points. give 4-5 tips only`;
 
   try {
     const response = await fetch(
@@ -249,9 +276,19 @@ async function fetchGeminiSolution(crop, disease) {
       }
     );
 
+
+    if (response.status === 429) {
+        console.warn("Gemini Quota Exceeded. Using Demo Solution.");
+        return getFallbackSolution(disease);
+    }
+
     const data = await response.json();
     
-    if (data.error) return `API Error: ${data.error?.message}`;
+   
+    if (data.error) {
+        console.warn("Gemini API Error:", data.error.message);
+        return getFallbackSolution(disease);
+    }
     
     if (data.candidates && data.candidates.length > 0) {
         if (data.candidates[0].finishReason === "SAFETY") {
@@ -260,14 +297,14 @@ async function fetchGeminiSolution(crop, disease) {
         return data.candidates[0].content.parts[0].text;
     }
 
-    return "No solution found.";
+    return getFallbackSolution(disease);
   } catch (error) {
     console.error("Network Error:", error);
-    return "Network error. Check connection.";
+
+    return getFallbackSolution(disease);
   }
 }
 
-// --- CONSTANTS ---
 const CLASS_NAMES = [
   "Pepper bell Bacterial_spot",
   "Pepper bell healthy",
@@ -300,7 +337,7 @@ const cropStages = [
   { value: "maturity", label: "Maturity" },
 ];
 
-// --- MAIN CONTENT COMPONENT ---
+
 function HealthCheckContent() {
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState("");
@@ -314,6 +351,9 @@ function HealthCheckContent() {
   const [pdfReady, setPdfReady] = useState(false);
   const [solution, setSolution] = useState("");
   const [loadingSolution, setLoadingSolution] = useState(false);
+  
+
+  const lastFetched = useRef({ disease: null, crop: null });
 
   const fileRef = useRef(null);
 
@@ -326,7 +366,6 @@ function HealthCheckContent() {
     }
   }, []);
 
-
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
@@ -334,7 +373,6 @@ function HealthCheckContent() {
     document.body.appendChild(script);
     return () => { document.body.removeChild(script); }
   }, []);
-
 
   useEffect(() => {
     if (isLocationEnabled) {
@@ -356,11 +394,15 @@ function HealthCheckContent() {
           setGeoErr(err.message || "Failed to get location.");
           setIsLocationEnabled(false);
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: false }
       );
       return () => navigator.geolocation.clearWatch(watchId);
     } else {
-      setLoc(null);
+      setLoc({
+        lat: 23.8191,
+        lon: 90.4329,
+        acc: 20
+      });
       setGeoErr("");
     }
   }, [isLocationEnabled]);
@@ -371,6 +413,7 @@ function HealthCheckContent() {
       setImageFile(f);
       setPreview(URL.createObjectURL(f));
       setSolution("");
+      lastFetched.current = { disease: null, crop: null };
     }
   }
 
@@ -425,11 +468,19 @@ function HealthCheckContent() {
 
   async function handleGetCure() {
     if (!inferMut.data) return;
-    setLoadingSolution(true);
+    
     const diseaseName = CLASS_NAMES[inferMut.data.class_id] || "Unknown Disease";
+
+    if (lastFetched.current.disease === diseaseName && lastFetched.current.crop === cropType && solution) {
+        return; 
+    }
+
+    setLoadingSolution(true);
     const text = await fetchGeminiSolution(cropType, diseaseName);
     setSolution(text);
     setLoadingSolution(false);
+    
+    lastFetched.current = { disease: diseaseName, crop: cropType };
   }
 
   async function handleSaveAndPdf() {
@@ -438,7 +489,6 @@ function HealthCheckContent() {
 
     try {
       const diseaseName = CLASS_NAMES[inferMut.data.class_id] || "Unknown";
-
 
       if (user && user.AcNo) {
         try {
@@ -461,7 +511,6 @@ function HealthCheckContent() {
         alert("Not logged in. Report not saved to account.");
       }
 
- 
       if (window.jspdf) {
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF();
@@ -498,6 +547,19 @@ function HealthCheckContent() {
                 doc.text(`Location: ${locationName}`, 20, 145);
             }
           }
+
+          if (solution) {
+              doc.addPage();
+              doc.setFontSize(14);
+              doc.setTextColor(46, 125, 50);
+              doc.text("AI Recommended Treatment", 20, 20);
+              doc.setFontSize(10);
+              doc.setTextColor(0);
+
+              const splitText = doc.splitTextToSize(solution, 170);
+              doc.text(splitText, 20, 30);
+          }
+
           doc.save(`CropReport_${Date.now()}.pdf`);
           alert("Report downloaded!");
       } 
@@ -655,7 +717,7 @@ function HealthCheckContent() {
                   {/* --- DISPLAY SOLUTION --- */}
                   {solution && (
                     <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg animate-in slide-in-from-top-2">
-                      <h4 className="font-bold text-green-800 mb-2">🌱 AI Expert Advice:</h4>
+                      <h4 className="font-bold text-green-800 mb-2">🌱 AI Expert Advice {solution.includes("Demo") && "(Offline Mode)"}</h4>
                       <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
                         {solution}
                       </p>

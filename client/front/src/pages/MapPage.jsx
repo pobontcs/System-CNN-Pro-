@@ -130,20 +130,33 @@ function MapContent() {
     }
   }
 
+  const DEFAULT_LOCATION = { lat: 23.8103, lon: 90.4125, acc: 5000 }; 
+
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setGeoErr("Geolocation not supported.");
+      setGeoErr("Geolocation not supported. Defaulting to Dhaka.");
+      setMyLoc(DEFAULT_LOCATION);
+      setSelected(null);
       return;
     }
-    setGeoErr("");
+    
+    setGeoErr(""); 
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+
         const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
         setMyLoc(loc);
         setSelected(null); 
       },
-      (err) => setGeoErr("Locating failed: " + err.message),alert("gps error"),
-      { enableHighAccuracy: false }
+      (err) => {
+  
+        console.warn("GPS Failed, using default:", err.message);
+        setGeoErr("GPS unavailable. Defaulting to Dhaka.");
+        setMyLoc(DEFAULT_LOCATION);
+        setSelected(null);
+      },
+      { enableHighAccuracy: false, timeout: 5000 }
     );
   }
 
@@ -166,7 +179,6 @@ function MapContent() {
     const notes = [];
     let level = "low";
 
-    // --- Humidity & Disease Risk ---
     if (weather.humidity > 90) {
         notes.push("Extreme humidity: Severe fungal/mold risk.");
         level = "high";
@@ -175,7 +187,6 @@ function MapContent() {
         if (level !== "high") level = "medium";
     }
 
-    // --- Rain & Drainage ---
     if (weather.precip_mm > 50) {
         notes.push("Heavy rainfall: Flood risk & soil erosion likely.");
         level = "high";
@@ -184,7 +195,6 @@ function MapContent() {
         if (level !== "high") level = "medium";
     }
 
-    // --- Temperature Extremes ---
     if (weather.temp_c > 35) {
         notes.push("Extreme Heat: Heat stress risk for crops/livestock.");
         level = "high";
@@ -199,7 +209,7 @@ function MapContent() {
         if (level !== "high") level = "medium";
     }
 
-    // --- Wind Conditions ---
+   
     if (weather.wind_kph > 60) {
         notes.push("Gale Force Winds: Structural damage risk. Avoid spraying.");
         level = "high";
@@ -208,13 +218,11 @@ function MapContent() {
         if (level !== "high") level = "medium";
     }
 
-    // --- UV Index ---
     if (weather.uv > 8) {
         notes.push("Extreme UV: High radiation risk for field workers.");
         if (level === "low") level = "medium";
     }
 
-    // --- Visibility ---
     if (weather.vis_km < 1) {
         notes.push("Dense Fog: Low visibility. Use caution with machinery.");
         if (level !== "high") level = "medium";
